@@ -145,65 +145,107 @@ claude-code.club AI API 系统现在支持通过兼容 Gemini Assist API 的方�
   在 Gemini CLI 控制台中，您可能会看到 `Failed to fetch user info: 401 Unauthorized` 的提示。这属于正常现象，且不影响工具的正常使用。
 </Callout>
 
-### 错误配置：直接使用 Gemini API Key (请避免)
+### 备选方式：通过 GEMINI_API_KEY 方式访问
 
-<Callout type="error">
-  **强烈警告：请勿使用此方式！**
-  <br />
-  此方式通过直接使用 Gemini API 无法利用额度，会触发 `429 Too Many Requests` 错误，导致服务中断。
-  <br />
-  **无论您从何处了解此配置，都请勿在此处使用。**
-</Callout>
-
-如果您不慎配置了与 Gemini API 相关的环境变量，或不确定是否已配置，请按照以下步骤检查并清除它们，以避免干扰首选的 Gemini Assist API 方式。
+我们的系统同样支持通过 `GEMINI_API_KEY` 方式访问。如果你更习惯这种配置方式，可以使用以下环境变量：
 
 <Tabs items={['macOS / Linux', 'Windows (PowerShell)', 'Windows (CMD)']}>
   <Tabs.Tab>
-    **检查是否已配置：**
+    **临时生效（当前窗口）：**
     ```bash
-    echo $GOOGLE_GEMINI_BASE_URL
-    echo $GEMINI_API_KEY
+    export GOOGLE_GEMINI_BASE_URL="https://claude-code.club/gemini"
+    export GEMINI_API_KEY="您的API密钥" # 请替换为您的实际密钥
     ```
-    **取消配置：**
+
+    **永久生效（推荐）：**
+
+    对于 zsh（macOS 默认）：
     ```bash
-    unset GOOGLE_GEMINI_BASE_URL
-    unset GEMINI_API_KEY
+    echo 'export GOOGLE_GEMINI_BASE_URL="https://claude-code.club/gemini"' >> ~/.zshrc
+    echo 'export GEMINI_API_KEY="您的API密钥"' >> ~/.zshrc
+    source ~/.zshrc
     ```
-    为确保更改永久生效，请记得保存您的 `.zshrc` 或 `.bashrc` 文件，并重新加载配置（例如 `source ~/.zshrc`）。
+
+    对于 bash：
+    ```bash
+    echo 'export GOOGLE_GEMINI_BASE_URL="https://claude-code.club/gemini"' >> ~/.bashrc
+    echo 'export GEMINI_API_KEY="您的API密钥"' >> ~/.bashrc
+    source ~/.bashrc
+    ```
   </Tabs.Tab>
   <Tabs.Tab>
-    **检查是否已配置：**
+    **当前会话生效：**
     ```powershell
-    Write-Host $env:GOOGLE_GEMINI_BASE_URL
-    Write-Host $env:GEMINI_API_KEY
+    $env:GOOGLE_GEMINI_BASE_URL="https://claude-code.club/gemini"
+    $env:GEMINI_API_KEY="您的API密钥" # 请替换为您的实际密钥
     ```
-    **取消配置：**
+
+    **永久生效：**
     ```powershell
-    Remove-Item Env:GOOGLE_GEMINI_BASE_URL -ErrorAction SilentlyContinue
-    Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
-    ```
-    如果您曾使用 `[System.Environment]::SetEnvironmentVariable` 进行永久设置，请使用以下命令清除：
-    ```powershell
-    [System.Environment]::SetEnvironmentVariable('GOOGLE_GEMINI_BASE_URL', $null, 'User')
-    [System.Environment]::SetEnvironmentVariable('GEMINI_API_KEY', $null, 'User')
+    [System.Environment]::SetEnvironmentVariable('GOOGLE_GEMINI_BASE_URL', 'https://claude-code.club/gemini', 'User')
+    [System.Environment]::SetEnvironmentVariable('GEMINI_API_KEY', '您的API密钥', 'User')
     ```
     *设置后需要重启 PowerShell 窗口。*
   </Tabs.Tab>
   <Tabs.Tab>
-    **检查是否已配置：**
+    **永久生效：**
     ```cmd
-    echo %GOOGLE_GEMINI_BASE_URL%
-    echo %GEMINI_API_KEY%
-    ```
-    **取消配置：**
-    要彻底清除，请在系统环境变量设置中手动删除这些变量，或者使用以下命令将它们设置为空（此方法可能不如手动删除彻底）：
-    ```cmd
-    setx GOOGLE_GEMINI_BASE_URL ""
-    setx GEMINI_API_KEY ""
+    setx GOOGLE_GEMINI_BASE_URL "https://claude-code.club/gemini"
+    setx GEMINI_API_KEY "您的API密钥"
     ```
     *设置后需要重启 CMD 窗口。*
   </Tabs.Tab>
 </Tabs>
+
+<Callout type="warning">
+  **注意：** 请勿同时配置 Gemini Assist API 方式和 GEMINI_API_KEY 方式的环境变量，两者可能会互相干扰。如需切换，请先清除另一种方式的变量。
+</Callout>
+
+#### 常见问题：配置后仍弹出浏览器登录
+
+配置 `GEMINI_API_KEY` 走 CC Club 中转 API 时，有时即使导出了环境变量，系统依然强制拦截并弹出浏览器。通常由以下三个原因导致：
+
+1. **向导默认选项拦截**：Gemini CLI 首次启动时会触发交互式菜单。如果直接按回车，系统会默认选择 `Login with Google`（浏览器 OAuth 认证）。CLI 不会因为检测到环境变量就自动跳过这个向导。
+2. **本地缓存优先级过高**：如果之前曾通过浏览器完成过登录，CLI 会在 `~/.gemini/` 目录下生成缓存凭据（Session）。缓存凭据的优先级高于环境变量，导致它无视你配置的 `GEMINI_API_KEY`，强制走 Google 官方校验。
+3. **沙盒环境隔离（已知 Bug）**：Gemini CLI 执行任务时默认启动沙盒，当前版本存在已知缺陷：`GOOGLE_GEMINI_BASE_URL` 环境变量无法正确透传到沙盒容器中，导致底层请求仍指向官方默认接口。
+
+**排障步骤：**
+
+**第一步：清理旧的认证缓存**
+
+删除本地残留配置，强制 CLI 重新读取环境变量：
+```bash
+rm -rf ~/.gemini
+```
+
+**第二步：确认环境变量生效**
+
+确保环境变量在当前终端 Session 中已导出：
+```bash
+export GEMINI_API_KEY="您的API密钥"
+export GOOGLE_GEMINI_BASE_URL="https://claude-code.club/gemini"
+```
+
+**第三步：关闭沙盒启动 CLI**
+
+为避开自定义 Base URL 无法透传的 Bug，启动时需禁用沙盒：
+```bash
+gemini --sandbox=false
+```
+
+**第四步：在菜单中手动指定验证方式**
+
+启动后，当终端出现初始化选项时，使用键盘方向键选择第二项：
+```text
+> 1. Login with Google
+  2. Use Gemini API key  <-- 选中此项
+  3. Vertex AI
+```
+选中后，CLI 会自动检测到 `$GEMINI_API_KEY`，提示 `Existing API Key detected`，直接回车确认即可。
+
+<Callout type="info">
+  处理明文密钥时，注意 Bash/Zsh 历史记录的管理，可考虑结合 `direnv` 等工具进行安全隔离，防范泄漏风险。
+</Callout>
 
 ### 重要提示：关于 `/auth` 命令和环境变量
 
@@ -224,29 +266,31 @@ claude-code.club AI API 系统现在支持通过兼容 Gemini Assist API 的方�
 
 #### Bash/Zsh/或其他兼容 Shell 环境：
 
--   **检查 Gemini API 配置（避免干扰）：**
-    ```bash
-    echo $GOOGLE_GEMINI_BASE_URL $GEMINI_API_KEY
-    ```
-    如果变量已设置，您可能需要执行 `unset GOOGLE_GEMINI_BASE_URL GEMINI_API_KEY` 来避免干扰。
-
 -   **检查 Gemini Assist API 配置：**
     ```bash
     echo $CODE_ASSIST_ENDPOINT $GOOGLE_CLOUD_ACCESS_TOKEN $GOOGLE_GENAI_USE_GCA
     ```
 
-#### Windows PowerShell 环境：
-
--   **检查 Gemini API 配置（避免干扰）：**
-    ```powershell
-    Write-Host $env:GOOGLE_GEMINI_BASE_URL $env:GEMINI_API_KEY
+-   **检查 GEMINI_API_KEY 配置：**
+    ```bash
+    echo $GOOGLE_GEMINI_BASE_URL $GEMINI_API_KEY
     ```
-    如果变量已设置，您可能需要执行 `Remove-Item Env:GOOGLE_GEMINI_BASE_URL -ErrorAction SilentlyContinue; Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue` 来避免干扰。
+
+#### Windows PowerShell 环境：
 
 -   **检查 Gemini Assist API 配置：**
     ```powershell
     Write-Host $env:CODE_ASSIST_ENDPOINT $env:GOOGLE_CLOUD_ACCESS_TOKEN $env:GOOGLE_GENAI_USE_GCA
     ```
+
+-   **检查 GEMINI_API_KEY 配置：**
+    ```powershell
+    Write-Host $env:GOOGLE_GEMINI_BASE_URL $env:GEMINI_API_KEY
+    ```
+
+<Callout type="warning">
+  请勿同时配置两种方式的环境变量。如果两种变量同时存在，可能会互相干扰。请根据所选方式，清除另一种方式的变量。
+</Callout>
 
 
 ## 4. 验证安装
