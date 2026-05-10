@@ -1,0 +1,263 @@
+---
+title: 在 CC Switch 中配置 OpenAI Codex
+description: 通过 CC Switch 桌面应用图形化配置 OpenAI Codex 接入 CC Club API：auth.json + config.toml + 环境变量三件套全配齐。
+---
+
+import { Callout, Cards, Steps, Tabs } from 'nextra/components'
+
+# 在 CC Switch 中配置 OpenAI Codex
+
+[CC Switch](https://github.com/farion1231/cc-switch/releases) 是一款跨平台桌面应用，在图形界面里统一管理 Claude Code、Codex、OpenCode、Gemini CLI 的多套 API 配置。本页是 [Codex 安装和配置](/getting-started/codex-installation) 的**补充篇**——讲清楚在 CC Switch 的「添加供应商」表单里，**Codex 这一栏**每个字段到底应该填什么。
+
+<Callout type="warning">
+  **配置 Codex 比 Claude 多一步**——CC Switch 写好 `auth.json` 和 `config.toml` 之后，**你还必须在 shell 里手动 `export OPENAI_API_KEY`**，否则 Codex 启动时会因为读不到环境变量而认证失败。这是 Codex 配置最常被遗漏的一步，详见下方 [第五步：配置环境变量](#第五步配置环境变量最容易遗漏的一步)。
+</Callout>
+
+## 开始之前
+
+<Cards>
+  <Cards.Card icon="🔑" title="获取 API Key" href="/getting-started/get-api-key">
+    没有 CC Club Key 就无法填写第 3 项。先去免费申请一把。
+  </Cards.Card>
+  <Cards.Card icon="📦" title="安装 CC Switch" href="/getting-started/opencode-installation#方法二使用-cc-switch-配置">
+    Windows / macOS / Linux 三平台的下载与安装步骤。
+  </Cards.Card>
+  <Cards.Card icon="🧰" title="安装 Codex CLI" href="/getting-started/codex-installation#1-安装-codex-cli">
+    需要先有 `codex` 命令本体，CC Switch 才有东西可配。
+  </Cards.Card>
+</Cards>
+
+<Callout type="info">
+  打开 CC Switch → 左侧切换到 **Codex** 分组 → 点 **+ 添加供应商**，
+  然后跟着下面 4 个 GUI 字段 + 2 个配置块 + 1 个环境变量步骤来填。
+</Callout>
+
+## 字段速查表
+
+只想速查、不想读教程的话，背完这张表就够：
+
+| # | 字段 / 区域      | 该填什么                                                                            |
+|---|-----------------|------------------------------------------------------------------------------------|
+| 1 | 供应商名称 / 备注 | 凭喜好填，例如 `CC Club / Codex`、`Codex (gpt-5.4)`                                |
+| 2 | 官网链接          | **留空**                                                                            |
+| 3 | API              | 你的 CC Club API Key，详见 [获取 API Key](/getting-started/get-api-key)              |
+| 4 | 请求地址          | `https://claude-code.club/openai/v1`（**末尾 `/v1` 不能少**，否则 Codex 会断流）    |
+| 5 | `auth.json`     | 见 [auth.json 配置](#auth-json-配置)，4 行 JSON                                      |
+| 6 | `config.toml`   | 见 [config.toml 配置](#config-toml-配置)，含 `[model_providers.club]` 与 `[features]` |
+| 7 | 系统环境变量      | `export OPENAI_API_KEY=你的Key`，详见 [第五步](#第五步配置环境变量最容易遗漏的一步)     |
+
+## 字段详细说明
+
+<Steps>
+
+### 供应商名称 / 备注
+
+随便取，方便你以后在 CC Switch 列表里一眼认出来即可。建议带上"CC Club"和模型代号，比如 `CC Club / Codex gpt-5.4`。
+
+<Callout type="info">
+  这个字段**只影响列表显示**，不会进入实际请求，写中文也没问题。
+</Callout>
+
+### 官网链接
+
+**留空**。CC Club 不需要这个字段，留空不会触发任何校验问题。
+
+### API（也就是 API Key）
+
+把你在 [获取 API Key](/getting-started/get-api-key) 页面拿到的 Key 粘贴进来。
+
+<Callout type="warning">
+  Key 形如 `cr_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`，**首尾不要带空格**。这个 Key **同时用于** GUI 表单的 API 字段、`auth.json` 的 `OPENAI_API_KEY`，以及第五步的 `OPENAI_API_KEY` 环境变量——**三处填同一把 Key**，不要混淆。
+</Callout>
+
+### 请求地址（Base URL）
+
+```
+https://claude-code.club/openai/v1
+```
+
+注意两点：
+
+1. Codex 用的路径是 **`/openai`** 而不是 Claude 用的 `/api`——这是因为 CC Club 用不同的子路径区分两套上游协议。
+2. **末尾的 `/v1` 不能省略**。Codex CLI（v0.130 起）按 `{base_url}/responses` 拼最终 URL，少了 `/v1` 会请求到 `/openai/responses`，gateway 会返回空 SSE 流并立即关闭，表现为 `stream disconnected before completion: stream closed before response.completed`。
+
+如果默认地址延迟偏高，可以改用回国优化节点（**别忘了同步改 `config.toml` 里 `[model_providers.club]` 的 `base_url`**）：
+
+| 地址 | 适用情况 |
+|---|---|
+| `https://claude-code.club/openai/v1`    | 默认（直连最快）             |
+| `https://jp.claude-code.club/openai/v1` | 日本节点（阿里云，回国优化） |
+| `https://hk.claude-code.club/openai/v1` | 香港节点（阿里云，回国优化） |
+| `https://sz.ai-code.club/openai/v1`     | 深圳节点（国内中转出境）     |
+
+### auth.json 配置
+
+把下面这段**完整复制**到 CC Switch 的 `auth.json` 输入框，并把 `OPENAI_API_KEY` 的空字符串替换为你自己的 Key：
+
+```json
+{
+  "OPENAI_API_KEY": "",
+  "auth_mode": "apikey"
+}
+```
+
+| 字段 | 含义 | 修改建议 |
+|---|---|---|
+| `OPENAI_API_KEY` | Codex CLI 持久化保存的 Key 副本 | **必改**：粘贴你的 CC Club Key |
+| `auth_mode`      | 认证模式（`apikey` / `oauth`）   | 保持 `apikey`，CC Club 走 API Key 路径 |
+
+<Callout type="warning">
+  即使这里填了 Key，**Codex 启动时仍会优先读环境变量**——不要省略后面的环境变量步骤。
+</Callout>
+
+### config.toml 配置
+
+把下面整段**完整复制**到 CC Switch 的 `config.toml` 输入框：
+
+```toml
+model_provider = "club"
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+disable_response_storage = true
+preferred_auth_method = "apikey"
+
+[model_providers.club]
+name = "ai code club"
+base_url = "https://claude-code.club/openai/v1"
+wire_api = "responses"
+requires_openai_auth = true
+env_key = "OPENAI_API_KEY"
+
+[features]
+shell_snapshot = true
+multi_agent = true
+unified_exec = true
+```
+
+这份 TOML 分三块，逐块说明：
+
+**① 顶层运行参数**
+
+| 字段 | 含义 | 修改建议 |
+|---|---|---|
+| `model_provider` | 选用哪个 provider（指向下方 `[model_providers.club]`） | 保持 `"club"` |
+| `model` | 默认模型 | `gpt-5.4` 是性价比首选；任务复杂时可手动切换 |
+| `model_reasoning_effort` | 思考强度（`low` / `medium` / `high`） | 通常保持 `medium` |
+| `disable_response_storage` | 是否关闭响应缓存 | 保持 `true`，每次都拿新结果 |
+| `preferred_auth_method`    | 偏好的认证方式 | 保持 `apikey` 与 `auth.json` 一致 |
+
+**② `[model_providers.club]` provider 定义**
+
+| 字段 | 含义 | 修改建议 |
+|---|---|---|
+| `name`                  | 这条 provider 的展示名     | 任意 |
+| `base_url`              | API 入口地址               | **若改成回国节点，记得同步改这里** |
+| `wire_api`              | 协议规格（`responses` / `chat`） | 保持 `"responses"`，CC Club 走 Responses API |
+| `requires_openai_auth`  | 是否走 OpenAI 兼容认证      | 保持 `true` |
+| `env_key`               | 从哪个环境变量读 Key        | **保持 `"OPENAI_API_KEY"`**——必须和第五步设的环境变量名严格一致 |
+
+**③ `[features]` 功能开关**
+
+| 字段 | 含义 |
+|---|---|
+| `shell_snapshot` | 启用 shell 现场快照（出错时可回放） |
+| `multi_agent`    | 启用多智能体协作能力               |
+| `unified_exec`   | 启用统一执行器（提升工具调用稳定性）  |
+
+三个 feature 可以根据需要改 `false`，但**默认都开**能拿到最完整的 Codex 能力。
+
+</Steps>
+
+## 第五步：配置环境变量（最容易遗漏的一步）
+
+CC Switch 写好的 `auth.json` 是 Codex 的"备胎 Key"——Codex **启动时优先**读 `env_key` 指定的**操作系统环境变量**（`OPENAI_API_KEY`）。如果 shell 里没有这个变量，前面四步全配对了，运行 `codex` 仍会因为认证失败立刻退出。
+
+<Callout type="warning">
+  这是**唯一**会让"GUI 看起来配好了但跑起来报错"的步骤，**强烈建议把它写进 shell 启动文件**（`.zshrc` / `.bashrc` / 系统环境变量），不要每次开终端临时 `export`。
+</Callout>
+
+详细的跨平台命令请参考 [Codex 安装文档 → 第 3 节：配置环境变量](/getting-started/codex-installation#3-配置环境变量)，这里给出最简版速查：
+
+<Tabs items={['macOS (zsh)', 'Linux (bash)', 'Windows (PowerShell)']}>
+  <Tabs.Tab>
+    ```bash
+    echo 'export OPENAI_API_KEY="cr_把你的_key_粘贴到这里"' >> ~/.zshrc
+    source ~/.zshrc
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    echo 'export OPENAI_API_KEY="cr_把你的_key_粘贴到这里"' >> ~/.bashrc
+    source ~/.bashrc
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```powershell
+    [System.Environment]::SetEnvironmentVariable('OPENAI_API_KEY', 'cr_把你的_key_粘贴到这里', 'User')
+    ```
+    设置后**关闭并重开** PowerShell 窗口才会生效。
+  </Tabs.Tab>
+</Tabs>
+
+写完别忘了**重启终端**（或 `source` 启动文件）让变量生效。
+
+## 保存并验证
+
+<Steps>
+
+### 在 CC Switch 中点击「保存」
+
+CC Switch 会同时校验 `auth.json`（JSON 语法）和 `config.toml`（TOML 语法），通过后这条供应商出现在左侧 Codex 分组下。
+
+### 单击这条供应商卡片激活它
+
+CC Switch 是「主动选中谁就用谁」——卡片前出现勾选标记后，CC Switch 会把对应内容写入 `~/.codex/auth.json` 与 `~/.codex/config.toml`。
+
+### 在终端跑一次 Codex
+
+```bash
+echo $OPENAI_API_KEY     # 先确认环境变量真的设进去了，应输出 cr_... 开头的字符串
+codex --version          # 再看 CLI 是否在 PATH
+codex                    # 启动，输入一句话试试，例如"用一句话解释什么是 vibe coding"
+```
+
+如果秒级返回结果，说明 `auth.json` / `config.toml` / 环境变量三件套全部对上了。
+
+</Steps>
+
+<Callout type="success">
+  跑通这一步，**CC Switch + Codex CLI + CC Club** 整条链路就通了。以后切换不同 provider（CC Club ⇄ 官方 ⇄ 自建网关）只需在 CC Switch 单击对应卡片，不用再手动改 `~/.codex/` 下的任何文件。
+</Callout>
+
+## 常见问题
+
+### Q：保存时提示 TOML 校验失败？
+
+最常见的原因：
+
+- **section 头**写错——`[model_providers.club]` 的方括号、点号都不能少
+- **字符串用了单引号**——TOML 标准要求字符串必须用双引号 `"..."`
+- 在 `[model_providers.club]` 块内**复制粘贴时混入了别的章节键**，导致解析器误判 section 边界
+
+逐字对照本页 [config.toml 配置](#config-toml-配置) 重抄一遍最稳。
+
+### Q：保存后跑 `codex` 报「Authentication failed」？
+
+按可能性从高到低自查：
+
+1. **环境变量没设**：跑 `echo $OPENAI_API_KEY`，输出为空就是这个原因 → 回 [第五步](#第五步配置环境变量最容易遗漏的一步)
+2. **环境变量设了但终端没重启**：新打开一个终端窗口再试
+3. **Key 三处不一致**：GUI 表单 / `auth.json` / 环境变量必须是**同一把** CC Club Key，不要把废弃的 Key 留在某一处
+4. **provider 卡片没激活**：CC Switch 列表里这条卡片前要有勾选标记
+
+### Q：`model = "gpt-5.4"` 这个模型名是固定的吗？
+
+`gpt-5.4` 是 CC Club 当前推荐的 Codex 默认模型；想换其他模型时，**改 `model =` 这一行的字符串**即可，`[model_providers.club]` 那一块不用动。具体可用的模型名以 [CC Club 官方说明](https://claude-code.club) 为准。
+
+### Q：可以同时启用多条 Codex 供应商吗？
+
+不行。Codex CLI 任何时刻只读取**当前激活的那一条**配置——CC Switch 切换的是"哪条生效"，不是"全部并行"。要并行使用不同模型 / 网关，请分别开多个终端 + 多套 `~/.codex/` 配置目录。
+
+### Q：和 Claude 的 CC Switch 配置有什么关系？
+
+**完全独立**。Claude 走 `https://claude-code.club/api`、Anthropic Messages 协议；Codex 走 `https://claude-code.club/openai`、OpenAI Responses 协议。两条 provider 在 CC Switch 里分属 **Claude / Codex 两个分组**，可以同时存在、互不干扰。如果你也用 Claude Code，参见 [在 CC Switch 中配置 Claude Code](/getting-started/installation/ccswitch)。
