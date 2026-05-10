@@ -7,7 +7,7 @@ import { Callout, Tabs } from 'nextra/components'
 
 # Codex Desktop 客户端配置指南
 
-本指南面向已安装 **Codex Desktop**（GUI 客户端）的用户，帮你把桌面端连接到 OpenAI 兼容网关 `https://claude-code.club/openai`。如果你只用 Codex CLI，请优先参考 [安装和配置](/getting-started/codex-installation)。
+本指南面向已安装 **Codex Desktop**（GUI 客户端）的用户，帮你把桌面端连接到 OpenAI 兼容网关 `https://claude-code.club/openai/v1`。如果你只用 Codex CLI，请优先参考 [安装和配置](/getting-started/codex-installation)。
 
 ## 1. 前置条件
 
@@ -92,7 +92,7 @@ disable_response_storage = true
 
 [model_providers.club]
 name = "Claude Code Club OpenAI Gateway"
-base_url = "https://claude-code.club/openai"
+base_url = "https://claude-code.club/openai/v1"
 wire_api = "responses"
 requires_openai_auth = true
 env_key = "OPENAI_API_KEY"
@@ -162,7 +162,7 @@ env_key = "OPENAI_API_KEY"
 </Callout>
 
 ```bash
-launchctl setenv OPENAI_BASE_URL "https://claude-code.club/openai"
+launchctl setenv OPENAI_BASE_URL "https://claude-code.club/openai/v1"
 launchctl setenv OPENAI_API_KEY  "你的APIKey"
 ```
 
@@ -207,7 +207,8 @@ launchctl setenv OPENAI_API_KEY  "你的APIKey"
 | 现象 | 处理方式 |
 |------|---------|
 | `Invalid API key` | `auth.json` 或环境变量里的 Key 错误、过期、被禁用，重新生成并替换 |
-| 仍然访问旧网关 | 检查 `config.toml` 中 `base_url` 是否还是旧的 `https://cc.ai-code.club`，改为 `https://claude-code.club/openai` |
+| `stream disconnected before completion: stream closed before response.completed` | `base_url` 末尾少了 `/v1`。Codex CLI（v0.130 起）按 `{base_url}/responses` 拼 URL，少 `/v1` 会请求到 `/openai/responses`，gateway 返回空 SSE 流并立即关闭。改为 `https://claude-code.club/openai/v1` 即可 |
+| 仍然访问旧网关 | 检查 `config.toml` 中 `base_url` 是否还是旧的 `https://cc.ai-code.club`，改为 `https://claude-code.club/openai/v1` |
 | 模型不可用 | `model` 值不被当前网关支持，换成平台支持的模型，例如 `gpt-5.5` |
 | `JSON` 格式错误 | `auth.json` 必须是合法 JSON，最后一项后面不能多逗号 |
 | `TOML` 格式错误 | `config.toml` 的字符串要用英文双引号；配置块 `[model_providers.club]` 拼写不要错 |
