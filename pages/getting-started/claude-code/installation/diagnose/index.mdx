@@ -1,0 +1,469 @@
+---
+title: Claude Code 诊断工具
+description: 跨平台诊断工具，用于排查 Claude Code 的连接性、身份验证和安装问题。
+---
+
+# Claude Code 诊断工具
+
+跨平台诊断工具，用于排查 Claude Code 的连接性、身份验证和安装问题。
+
+## 概述
+
+本工具帮助诊断连接到 Claude Code API 服务器（`claude-code.club`）时的常见问题。它对以下几个方面进行全面检查：
+
+- **身份验证**：验证 API 令牌和配置
+- **网络**：测试 DNS 解析、TLS 握手和 API 连接性
+- **安装**：定位 Claude Code 二进制文件并验证版本
+- **配置**：检查环境变量和配置文件
+- **代理和 VPN**：检测可能干扰连接的代理设置和 VPN 连接
+
+> **📖 关于 Claude Code 运行问题**：如果 Claude Code 本身出现卡顿、缓慢或无响应（而非网络连接问题），请参阅 **[DEBUG_CN.md](/assets/getting-started/installation/DEBUG_CN.md)** 获取详细的调试说明，包括 `--verbose` 标志、日志分析和性能优化。
+
+## 支持的平台
+
+- **macOS/Linux**：`diagnose.sh`（zsh/bash）
+- **Windows**：`diagnose.ps1`（PowerShell）
+
+## 快速开始
+
+### 直接执行（无需下载）
+
+直接从 GitHub 运行诊断工具，无需克隆仓库：
+
+#### macOS/Linux
+
+```bash
+# 基础诊断
+curl -fsSL https://academy.claude-code.club/assets/getting-started/installation/diagnose.sh | zsh
+
+# 带详细输出
+curl -fsSL https://academy.claude-code.club/assets/getting-started/installation/diagnose.sh | zsh -s -- --verbose
+
+# 保存输出到文件
+curl -fsSL https://academy.claude-code.club/assets/getting-started/installation/diagnose.sh | zsh -s -- --output diagnostic-report.txt
+
+# 带详细输出和文件保存
+curl -fsSL https://academy.claude-code.club/assets/getting-started/installation/diagnose.sh | zsh -s -- --verbose --output report.txt
+```
+
+#### Windows
+
+```powershell
+# 基础诊断
+irm https://academy.claude-code.club/assets/getting-started/installation/diagnose.ps1 | iex
+
+# 带详细输出
+irm https://academy.claude-code.club/assets/getting-started/installation/diagnose.ps1 | iex; .\diagnose.ps1 -Verbose
+
+# 备选方案：下载并带参数执行
+$script = irm https://academy.claude-code.club/assets/getting-started/installation/diagnose.ps1
+Invoke-Expression $script -Verbose -Output report.txt
+```
+
+> **安全提示**：从互联网直接执行脚本前，请务必先查看脚本内容：
+> ```bash
+> # macOS/Linux：查看脚本内容
+> curl -fsSL https://academy.claude-code.club/assets/getting-started/installation/diagnose.sh | less
+> 
+> # Windows：查看脚本内容
+> irm https://academy.claude-code.club/assets/getting-started/installation/diagnose.ps1
+> ```
+
+---
+
+### 本地执行（下载脚本后）
+
+如果你希望先通过浏览器或http工具下载脚本到本地：
+
+#### macOS/Linux
+
+```bash
+# 首次使用需要添加执行权限
+chmod +x diagnose.sh
+
+# 运行基础诊断
+./diagnose.sh
+
+# 带详细日志
+./diagnose.sh --verbose
+
+# 保存诊断报告到文件
+./diagnose.sh --output diagnostic-report.txt
+
+# 启用自动修复
+./diagnose.sh --fix
+```
+
+#### Windows
+
+```powershell
+# 运行基础诊断
+.\diagnose.ps1
+
+# 带详细日志
+.\diagnose.ps1 -Verbose
+
+# 保存诊断报告到文件
+.\diagnose.ps1 -Output diagnostic-report.txt
+
+# 启用自动修复
+.\diagnose.ps1 -Fix
+```
+
+## 手动排查与指南
+
+如果你不想运行自动化脚本，或希望了解每个步骤的细节，我们提供了详细的手动排查指南：
+
+- **🍎 macOS**：[macOS 手动排查指南](/getting-started/claude-code/installation/diagnose/macos)
+- **🪟 Windows**：[Windows 手动排查指南](/getting-started/claude-code/installation/diagnose/windows)
+
+### 🎓 不熟悉终端？
+
+如果你不熟悉使用命令行（终端或 PowerShell），请查看我们的新手入门指南：
+
+- **[终端基础入门教程](/getting-started/claude-code/installation/diagnose/terminal-basics)**：学习如何在 macOS 和 Windows 上打开和使用终端。
+
+## 命令行选项
+
+| 选项 | 说明 |
+|------|------|
+| `--verbose` / `-Verbose` | 启用详细日志输出，包括 curl 响应和中间步骤 |
+| `--fix` / `-Fix` | 尝试自动修复常见配置问题 |
+| `--output <file>` / `-Output <file>` | 将诊断报告保存到指定文件 |
+| `--help` / `-Help` | 显示使用信息 |
+
+## 检查内容
+
+#### 1. 环境检查
+
+- 验证必需工具（`curl`，可选 `jq`）是否存在
+- 报告 shell/PowerShell 版本信息
+
+#### 2. 身份验证诊断
+
+- **ANTHROPIC_AUTH_TOKEN**：确认令牌已设置（必需）
+- **ANTHROPIC_API_KEY**：如果检测到则发出警告（不应使用）
+- **ANTHROPIC_BASE_URL**：验证正确的配置
+- **Console 缓存**：检测来自官方 Anthropic Console 的潜在冲突
+
+#### 3. 网络诊断
+
+- **DNS 解析**：测试 `claude-code.club` 的域名查询
+- **TLS 握手**：验证 SSL/TLS 证书验证
+- **API 连接性**：使用身份验证头执行实际的 API 调用
+- **错误检测**：识别特定的失败模式（超时、证书错误等）
+
+#### 3.5. 代理和 VPN 诊断
+
+- **代理环境变量**：检查 http_proxy、https_proxy、all_proxy、no_proxy 设置
+- **系统代理设置**：验证 macOS/Windows 系统级代理配置
+- **代理绕过列表**：确保在配置代理时 claude-code.club 在绕过/no_proxy 列表中
+- **VPN 检测**：识别活跃的 VPN 连接（Cisco AnyConnect、OpenVPN、WireGuard、NordVPN 等）
+- **VPN 接口分析**：检测 VPN 网络适配器及其状态
+- **隧道模式检测**：判断 VPN 使用全隧道（所有流量）还是分离隧道（选择性路由）
+- **路由分析**：检查到 claude-code.club 的流量是否通过 VPN 路由
+- **企业网络影响**：当 VPN 活跃时警告可能的防火墙阻止
+
+#### 5. 安装发现
+
+- 在系统 PATH 中定位 Claude Code 二进制文件
+- 检测安装方法（npm、Homebrew、手动安装）
+  查找 npm 全局包路径
+    npm config get prefix
+- 报告当前版本
+- 警告多个安装
+
+#### 6. 配置文件
+
+- 检查配置目录（`~/.claude` 等）
+- 扫描环境文件中的 ANTHROPIC 变量
+- 检查注册表设置（仅 Windows）
+
+## 示例输出
+
+```
+========================================
+Claude Code 诊断工具
+========================================
+目标 API: https://claude-code.club/api
+日期: 2025-01-14 10:30:45
+
+[1] 环境检查
+----------------------------------------
+✓ curl: 已找到 (curl 8.1.0)
+  jq: 未找到（可选，安装后可获得更好的输出格式）
+  Shell: /bin/zsh
+
+[2] 身份验证诊断
+----------------------------------------
+✓ ANTHROPIC_AUTH_TOKEN: 已设置 (sk-ant-api...abc123)
+✓ ANTHROPIC_API_KEY: 未设置（正确）
+  ANTHROPIC_BASE_URL: 未设置（可选，默认为 claude-code.club）
+
+[3] 网络诊断
+----------------------------------------
+✓ DNS 解析: claude-code.club → 54.250.224.68
+✓ TLS 握手: 成功
+✓ API 连接: 成功 (HTTP 200)
+
+[3.5] 代理和 VPN 诊断
+----------------------------------------
+  检查代理环境变量...
+✓ 未设置代理环境变量
+✓ 系统 HTTP 代理: 已禁用
+✓ 系统 HTTPS 代理: 已禁用
+  检查活跃的 VPN 连接...
+✓ 未检测到活跃的 VPN
+
+[5] 安装发现
+----------------------------------------
+✓ Claude Code: 在 /opt/homebrew/bin/claude 找到
+  版本: 1.2.3
+  安装方法: Homebrew
+
+[6] 配置文件
+----------------------------------------
+✓ 配置目录: /Users/username/.claude
+  检查环境文件中的 Claude Code 变量...
+✓ 在以下文件中找到 ANTHROPIC 变量: /Users/username/.zshrc
+
+========================================
+诊断摘要
+========================================
+
+✓ 未检测到关键问题！
+
+========================================
+诊断完成
+========================================
+```
+
+## 常见问题和解决方案
+
+#### 1. "ANTHROPIC_AUTH_TOKEN: 未设置"
+
+**解决方案：**
+```bash
+# macOS/Linux
+export ANTHROPIC_AUTH_TOKEN='your-token-here'
+echo 'export ANTHROPIC_AUTH_TOKEN="your-token"' >> ~/.zshrc
+
+# Windows (PowerShell)
+$env:ANTHROPIC_AUTH_TOKEN='your-token-here'
+# 持久化设置，通过系统属性 → 环境变量
+```
+
+#### 2. 身份验证失败 (HTTP 401)
+
+**原因：**
+- 令牌无效或已过期
+- 令牌格式不正确
+
+**解决方案：**
+- 验证令牌是否正确
+- 如有必要，请求新令牌
+- 确保令牌值中没有多余的空格或引号
+
+#### 3. 无法解析 claude-code.club
+
+**解决方案：**
+```bash
+# macOS
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+
+# Linux
+sudo systemd-resolve --flush-caches
+
+# Windows
+ipconfig /flushdns
+```
+
+#### 4. 证书验证失败 (TLS)
+
+**原因：**
+- 系统时间不正确
+- 根证书缺失或过时
+- 企业代理或防火墙干扰
+
+**解决方案：**
+1. 验证系统日期/时间是否正确
+2. 更新系统证书
+3. 检查企业代理设置
+4. 暂时测试不使用 VPN（如适用）
+
+#### 5. 检测到 ANTHROPIC_API_KEY
+
+**解决方案：**
+```bash
+# macOS/Linux：从环境文件中删除
+# 编辑 ~/.zshrc、~/.bashrc 或 ~/.profile 并删除以下行：
+# export ANTHROPIC_API_KEY='...'
+
+# Windows：从环境变量中删除
+# 系统属性 → 高级 → 环境变量
+```
+
+#### 6. 发现多个 Claude Code 安装
+
+**解决方案：**
+删除重复安装以避免版本冲突：
+```bash
+# 检查所有位置
+which -a claude
+
+# 删除不需要的版本
+# 示例：npm install -g @anthropic-ai/claude-code（重新安装）
+```
+
+#### 7. 代理配置问题
+
+**原因：**
+- 已配置 HTTP/HTTPS 代理
+- claude-code.club 不在代理绕过列表中
+
+**解决方案：**
+```bash
+# macOS/Linux：添加到 no_proxy 环境变量
+export no_proxy="$no_proxy,claude-code.club,.claude-code.club"
+echo 'export no_proxy="$no_proxy,claude-code.club,.claude-code.club"' >> ~/.zshrc
+
+# Windows：添加到 no_proxy 环境变量
+$env:no_proxy="$env:no_proxy,claude-code.club,.claude-code.club"
+# 持久化设置，通过系统属性 → 环境变量
+
+# Windows：添加到系统代理绕过列表
+# 控制面板 → Internet 选项 → 连接 → LAN 设置 → 代理 → 例外
+# 添加：claude-code.club;*.claude-code.club
+```
+
+#### 8. VPN 连接问题
+
+**原因：**
+- 活跃的 VPN 连接通过企业网络路由流量
+- 全隧道模式将所有流量通过 VPN 路由
+- 企业防火墙可能阻止 claude-code.club
+
+**解决方案：**
+
+**选项 1：暂时断开 VPN**（如允许）
+```bash
+# 测试不使用 VPN 的连接性
+# 断开 VPN → 运行诊断 → 检查问题是否解决
+```
+
+**选项 2：VPN 分离隧道配置**（推荐）
+```bash
+# 请求网络管理员配置分离隧道
+# 将 claude-code.club 添加到 VPN 绕过/本地路由列表
+
+# 常见 VPN 软件绕过列表：
+# - Cisco AnyConnect：添加到"本地 LAN 访问"或分离隧道排除
+# - OpenVPN：修改路由配置
+# - WireGuard：配置 AllowedIPs 以排除 claude-code.club IP 范围
+```
+
+**选项 3：防火墙白名单**（企业环境）
+```bash
+# 请求网络/安全团队将以下内容加入白名单：
+# 域名：claude-code.club、*.claude-code.club
+# IP 范围：（通过以下命令获取：dig claude-code.club）
+# 端口：443 (HTTPS)
+```
+
+**选项 4：测试路由**（诊断）
+```bash
+# macOS/Linux：检查到 claude-code.club 的路由
+route -n get claude-code.club
+
+# Windows：检查到 claude-code.club 的路由
+Find-NetRoute -RemoteIPAddress "claude-code.club"
+
+# 如果路由通过 VPN 接口（utun、TAP 等），
+# 这就是被阻止的原因
+```
+
+## 系统要求
+
+### macOS/Linux
+- **curl**（必需）- 通常已预装
+- **zsh** 或 **bash** shell
+- **jq**（可选）- 用于 JSON 格式化
+
+### Windows
+- **PowerShell** 5.1 或更高版本
+- **curl**（Windows 10+ 自带，或通过 [winget](https://learn.microsoft.com/zh-cn/windows/package-manager/winget/) 安装）
+- **jq**（可选）- 通过 `winget install jqlang.jq` 安装
+
+## 故障排除
+
+### 脚本执行问题
+
+**macOS/Linux：**
+```bash
+# 权限被拒绝
+chmod +x diagnose.sh
+
+# /bin/zsh: bad interpreter
+# 如果 zsh 不可用，编辑 shebang 行为：
+#!/usr/bin/env bash
+```
+
+**Windows：**
+```powershell
+# 执行策略错误
+PowerShell -ExecutionPolicy Bypass -File diagnose.ps1
+
+# 或永久设置执行策略（需要管理员权限）：
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### 网络测试
+
+如果诊断显示网络问题，可以手动测试：
+
+```bash
+# 测试 DNS
+nslookup claude-code.club
+
+# 测试 TLS
+openssl s_client -connect claude-code.club:443 -servername claude-code.club
+
+# 测试 API（替换 YOUR_TOKEN）
+curl -v https://claude-code.club/api/v1/models \
+  --header "x-api-key: YOUR_TOKEN" \
+  --header "anthropic-version: 2023-06-01"
+```
+
+## 贡献
+
+欢迎贡献！如果遇到问题或有建议：
+
+1. 检查现有问题或创建新问题
+2. Fork 仓库
+3. 创建功能分支
+4. 提交 Pull Request
+
+## 支持
+
+### 诊断工具
+
+- **网络连接问题**：使用本仓库的 `diagnose.sh`（macOS/Linux）或 `diagnose.ps1`（Windows）
+- **Claude Code 运行问题**：参阅 [DEBUG_CN.md](/assets/getting-started/installation/DEBUG_CN.md) 了解如何调试卡顿进程、慢响应和性能优化
+
+### 外部资源
+
+关于 Claude Code 相关问题：
+- 官方文档：[https://docs.anthropic.com](https://docs.anthropic.com)
+- GitHub Issues：[报告问题](https://github.com/anthropics/claude-code/issues)
+
+## 许可证
+
+本诊断工具按原样提供，用于故障排除目的。
+
+---
+
+**目标环境：**
+- API 服务器：`https://claude-code.club/api`
+- 身份验证：使用 `ANTHROPIC_AUTH_TOKEN` 环境变量
+- API 配置：`ANTHROPIC_BASE_URL=https://claude-code.club/api`

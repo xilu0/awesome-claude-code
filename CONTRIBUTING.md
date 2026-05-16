@@ -333,3 +333,56 @@ git push origin feature/your-feature-name
 ---
 
 有任何疑问？欢迎随时在 [Discussions](https://github.com/zjh1943/awesome-claude-code/discussions) 中提问！
+---
+现在我说，你写文档
+
+我现在说的是Claude在ccswitch中的配置。
+
+1，供应商名称/备注，凭自己喜欢可随便写
+
+2，官网连接：留空
+
+3api,这里https://academy.claude-code.club/getting-started/get-api-key，这里挂这个文档的转接，这个文档名称叫获取 API Key
+4请求地址https://claude-code.club/api
+5api 格式选择Anthropic Messages (原生)
+模型区域留空白，
+配置 JSON
+{
+  "effortLevel": "medium",
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "",
+    "ANTHROPIC_BASE_URL": "https://claude-code.club/api"
+  },
+  "model": "sonnet[1m]"
+}
+接下来我们来完成，codex在ccswitch中的配置，
+1，供应商名称/备注，凭自己喜欢可随便写
+
+2，官网连接：留空
+
+3api,这里https://academy.claude-code.club/getting-started/get-api-key，这里挂这个文档的转接，这个文档名称叫获取 API Key
+4请求地址https://claude-code.club/openai
+auth.json中配置
+{
+  "OPENAI_API_KEY": "",
+  "auth_mode": "apikey"
+}
+config.toml中配置
+model_provider = "club"
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+disable_response_storage = true
+preferred_auth_method = "apikey"
+
+[model_providers.club]
+name = "ai code club"
+base_url = "https://claude-code.club/openai"
+wire_api = "responses"
+requires_openai_auth = true
+env_key = "OPENAI_API_KEY"
+
+[features]
+shell_snapshot = true
+multi_agent = true
+unified_exec = true
+重要的是一定要配置环境变量，怎么配置环境变量在https://academy.claude-code.club/getting-started/codex-installation这个章节

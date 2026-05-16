@@ -26,3 +26,7 @@ CC Club 提供的 `ANTHROPIC_BASE_URL` 配置：
    - Steps. 使用方式 <Steps> </Steps>
    使用这些组件时，需要从 'nextra/components' 导入。
 3. 使用 `pnpm` 进行包管理和构建，不要使用 `npm` 或 `yarn`。
+
+## 当前进行中的功能
+
+文档站目录重构（方案 B）实施计划：`specs/003-restructure-docs-b/plan.md`
